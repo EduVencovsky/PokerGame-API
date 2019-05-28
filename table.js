@@ -5,4 +5,9 @@ class Table {
     this.game = null;
     this.isRunning = false;
   }
+
+  startNewGame() {
+    this.game = new Game();
+    game.players = this.players;
+  }
 }
