@@ -9,6 +9,7 @@ class Game {
     this.tableCards = [];
     this.pot = 0;
     this.burnCards = [];
+    this.isRunning = false;
   }
 
   burnCard() {
@@ -19,14 +20,16 @@ class Game {
     return quantity ? this.cards.splice(-quantity) : this.cards.pop();
   }
 
-  playerJoin(playerName) {
-    let id = Math.random().toString();
-    let newPlayer = new Player(id, playerName, 1000);
-    this.players = this.players.concat(newPlayer);
-    return id;
+  playerJoin(player) {
+    player.gameId = this.id;
+    this.players = this.players.concat(player);
   }
 
+  resetGame() {}
+
   start() {
+    this.isRunning = true;
+    this.cards = generateShuffledCards(this.cards);
     for (let i = 0; i < 2; i++) {
       this.players.forEach(player => {
         let card = this.popCards();

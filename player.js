@@ -1,10 +1,11 @@
 class Player {
-  constructor(id, name, chips = 1000) {
-    this.id = id;
+  constructor(name, chips = 1000) {
+    this.id = Math.random().toString();
     this.name = name;
     this.chips = chips;
     this.cards = [];
     this.cardsRank = null;
+    this.gameId = null;
   }
 
   setHandRank(rank) {

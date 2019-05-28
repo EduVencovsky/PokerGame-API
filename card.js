@@ -71,8 +71,8 @@ const shuffleCards = cards => {
   return cards;
 };
 
-const generateShuffledCards = () => {
-  return shuffleCards(generateCards());
+const generateShuffledCards = (cards = null) => {
+  return shuffleCards(cards ? cards : generateCards());
 };
 
 const checkHand = (playerCards, tableCards = []) => {
