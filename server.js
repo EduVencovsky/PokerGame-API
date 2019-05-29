@@ -1,31 +1,57 @@
 const app = require("express")();
+const bodyParser = require("body-parser");
+const cors = require("cors");
 const server = require("http").Server(app);
 const io = require("socket.io")(server);
-const { Game } = require("./game");
+const { Table } = require("./table");
 const { Player } = require("./player");
 
 server.listen(8080);
+app.use(cors());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
 // WARNING: app.listen(80) will NOT work here!
+
+const tables = [];
+const players = [];
 
 app.get("/", function(req, res) {
   res.sendFile(__dirname + "/index.html");
 });
 
-const games = [];
-const players = [];
+app.post("/joinPlayer", (req, res) => {
+  const { playerName } = req.body;
+  console.log(`Player ${playerName} joined`);
+  let id = addNewPlayer(playerName);
+  res.json({ id });
+});
 
-const findGameToPlay = () => {
-  const playableGame = games.find(game => game.players.length < 5);
-  if (!playableGame) {
-    let newGame = new Game();
-    games.push(newGame);
-    return newGame;
+app.post("/joinTable", (req, res) => {
+  const { playerId } = req.body;
+  const player = findPlayer(playerId);
+  let table = findTableToPlay();
+
+  console.log(`Player ${playerId} joined table ${table.id}`);
+  table.playerJoin(player);
+  if (table.players.length > 1 && !table.game) {
+    console.log(`Game Start`);
+    table.startNewGame();
   }
-  return playableGame;
+  res.json({ id: table.id });
+});
+
+const findTableToPlay = () => {
+  const playableTable = tables.find(table => table.players.length < 5);
+  if (!playableTable) {
+    let newTable = new Table(io);
+    tables.push(newTable);
+    return newTable;
+  }
+  return playableTable;
 };
 
 const findPlayer = playerId => players.find(player => player.id == playerId);
-const findGame = gameId => games.find(game => game.id == gameId);
+const findTable = tableId => tables.find(table => table.id == tableId);
 
 const addNewPlayer = (playerName, playerId) => {
   let newPlayer = new Player(playerName);
@@ -33,53 +59,25 @@ const addNewPlayer = (playerName, playerId) => {
   return newPlayer.id;
 };
 
-const startGame = game => {
-  game.start();
-  game.players.forEach(({ id, cards }) => {
+const startTable = table => {
+  table.start();
+  table.players.forEach(({ id, cards }) => {
     console.log(`Player ${id} have cards ${cards}`);
-    io.emit(game.id + "#" + id, { cards, tableCards: [] });
+    io.emit(table.id + "#" + id, { cards, tableCards: [] });
     setTimeout(() => {
       console.log(`Send Table Cards slice(0, 3)`);
-      io.emit(game.id + "#" + id, {
+      io.emit(table.id + "#" + id, {
         cards,
-        tableCards: game.tableCards.slice(0, 3)
+        tableCards: table.tableCards.slice(0, 3)
       });
       setTimeout(() => {
         console.log(`Send Table Cards all`);
-        io.emit(game.id + "#" + id, {
+        io.emit(table.id + "#" + id, {
           cards,
-          tableCards: game.tableCards
+          tableCards: table.tableCards
         });
-        startGame(game);
+        startTable(table);
       }, 3000);
     }, 3000);
   });
 };
-
-io.on("connection", function(socket) {
-  socket.on("playerConnection", ({ playerName }) => {
-    let id = addNewPlayer(playerName);
-    console.log("connected player", playerName, id);
-    socket.emit("playerId", { id });
-  });
-  socket.on("gameConnection", ({ playerId }) => {
-    let currentPlayer = findPlayer(playerId);
-    let game = null;
-    if (currentPlayer) {
-      if (currentPlayer.gameId) {
-        game = findGame(currentPlayer.gameId);
-      } else {
-        game = findGameToPlay();
-        game.playerJoin(currentPlayer);
-        if (game.players.length > 1 && !game.isRunning) {
-          startGame(game);
-        }
-      }
-      console.log(`Player ${currentPlayer.id} connected to game ${game.id}`);
-      socket.emit("gameId", { id: game.id });
-    } else {
-      console.log("player not found", playerId);
-      socket.emit("gameId", { id: null });
-    }
-  });
-});
